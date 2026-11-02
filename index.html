@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCMC Cipher Cracker | Markov Chain Monte Carlo Decryption</title>
+  <meta name="description" content="Interactive Markov Chain Monte Carlo (MCMC) algorithm for cracking classical substitution ciphers using Metropolis-Hastings and bigram frequency matrices.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-elevated: #1f2937;
+      --surface-border: #374151;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --mono-font: 'Fira Code', monospace;
+      --sans-font: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--sans-font);
+      line-height: 1.6;
+      min-block-size: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Accessibility utility */
+    .sr-only {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    /* Header */
+    header {
+      padding-block: 2.5rem 1.5rem;
+      padding-inline: 1.5rem;
+      border-block-end: 1px solid var(--surface-border);
+      background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15), transparent 70%);
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-block: 0.25rem;
+      padding-inline: 0.75rem;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 9999px;
+      color: #93c5fd;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      margin-block-end: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-block-end: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: clamp(1rem, 2vw, 1.125rem);
+      color: var(--text-muted);
+      max-inline-size: 700px;
+      margin-inline: auto;
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      inline-size: 100%;
+      max-inline-size: 1200px;
+      margin-inline: auto;
+      padding-inline: 1.5rem;
+      padding-block: 2rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    /* Grid Layout for App */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 900px) {
+      .dashboard-grid {
+        grid-template-columns: 3fr 2fr;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      min-inline-size: 0;
+    }
+
+    .card-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #e5e7eb;
+    }
+
+    .preset-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding-block: 0.5rem;
+      padding-inline: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+    }
+
+    .btn-preset {
+      background: var(--surface-elevated);
+      color: var(--text-muted);
+      border-color: var(--surface-border);
+    }
+    .btn-preset:hover {
+      background: #374151;
+      color: var(--text-main);
+    }
+    .btn-preset.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent);
+      color: #60a5fa;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-elevated);
+      color: var(--text-main);
+      border-color: var(--surface-border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #374151;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Live Output Display */
+    .text-display-box {
+      font-family: var(--mono-font);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      background: #060911;
+      border: 1px solid var(--surface-border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      max-block-size: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-block-size: 140px;
+    }
+
+    .char-matched {
+      color: var(--success);
+      font-weight: 600;
+    }
+    .char-scrambled {
+      color: #94a3b8;
+    }
+    .char-flipped {
+      background: rgba(16, 185, 129, 0.25);
+      border-radius: 2px;
+      color: #34d399;
+    }
+
+    /* Stats HUD */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    @media (min-width: 600px) {
+      .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--surface-border);
+      border-radius: 0.5rem;
+      padding: 0.875rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-value {
+      font-size: 1.375rem;
+      font-weight: 700;
+      font-family: var(--mono-font);
+      color: #f3f4f6;
+    }
+    .metric-value.highlight {
+      color: var(--success);
+    }
+
+    /* Chart Canvas */
+    .chart-container {
+      inline-size: 100%;
+      block-size: 140px;
+      position: relative;
+    }
+    canvas {
+      display: block; /* prevents inline baseline layout gaps */
+      inline-size: 100%;
+      block-size: 100%;
+      border-radius: 0.5rem;
+      background: #060911;
+      border: 1px solid var(--surface-border);
+    }
+
+    /* Key Mapping Matrix */
+    .key-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+      gap: 0.35rem;
+    }
+    .key-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+      background: var(--surface-elevated);
+      border: 1px solid var(--surface-border);
+      border-radius: 0.35rem;
+      font-family: var(--mono-font);
+      font-size: 0.75rem;
+      transition: all 0.2s;
+    }
+    .key-cell .cipher-char {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+    }
+    .key-cell .plain-char {
+      color: #60a5fa;
+      font-weight: 700;
+    }
+    .key-cell.correct {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.15);
+    }
+    .key-cell.correct .plain-char {
+      color: var(--success);
+    }
+
+    /* Form Controls */
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      flex: 1 1 140px;
+    }
+    .control-item label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Writeup Section */
+    .writeup-section {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 1rem;
+      padding: 2.25rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .writeup-section h2 {
+      font-size: 1.5rem;
+      color: #ffffff;
+      border-block-end: 1px solid var(--surface-border);
+      padding-block-end: 0.75rem;
+    }
+
+    .writeup-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+    @media (min-width: 768px) {
+      .writeup-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .feature-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .feature-card h3 {
+      font-size: 1.05rem;
+      color: #93c5fd;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9375rem;
+      line-height: 1.55;
+    }
+
+    .math-callout {
+      background: #060911;
+      border-inline-start: 4px solid var(--accent);
+      padding: 1rem 1.25rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      font-family: var(--mono-font);
+      font-size: 0.875rem;
+      color: #d1d5db;
+      overflow-x: auto;
+    }
+
+    /* Footer */
+    footer {
+      border-block-start: 1px solid var(--surface-border);
+      padding-block: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-block-start: auto;
+    }
+    footer a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen reader live announcement region -->
+  <div id="liveAnnouncer" role="status" aria-live="polite" class="sr-only"></div>
+
+  <header>
+    <div class="badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Algorithm Portfolio Project
+    </div>
+    <h1>MCMC Cipher Cracker</h1>
+    <p class="subtitle">
+      Automated decryption of classical substitution ciphers using the Metropolis–Hastings Markov Chain Monte Carlo (MCMC) sampler and English bigram transition matrices.
+    </p>
+  </header>
+
+  <main>
+    <!-- Live Dashboard -->
+    <section class="dashboard-grid" aria-labelledby="playground-heading">
+      
+      <!-- Left Column: Live Text Decryption Feed -->
+      <div class="card">
+        <div class="card-title">
+          <span id="playground-heading">Live Decryption Canvas</span>
+          <span id="statusBadge" class="badge" style="margin-bottom:0; background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.3); color:#34d399;">
+            Ready
+          </span>
+        </div>
+
+        <!-- Presets -->
+        <div class="preset-group" role="group" aria-label="Cipher Text Presets">
+          <button type="button" class="btn btn-preset active" id="presetOliver" onclick="selectPreset('oliver')">Oliver Twist (Dickens)</button>
+          <button type="button" class="btn btn-preset" id="presetWar" onclick="selectPreset('war')">War & Peace (Tolstoy)</button>
+          <button type="button" class="btn btn-preset" id="presetTuring" onclick="selectPreset('turing')">Alan Turing Quote</button>
+        </div>
+
+        <!-- Scrambled Ciphertext Preview -->
+        <div>
+          <label for="cipherPreview" style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 0.35rem;">
+            Ciphertext (Encrypted with random permutation):
+          </label>
+          <div id="cipherPreview" class="text-display-box" style="max-block-size: 90px; min-block-size: 70px; opacity: 0.7;"></div>
+        </div>
+
+        <!-- Real-time Decoded Output -->
+        <div>
+          <label for="plainPreview" style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 0.35rem;">
+            Decrypted Stream (Watch MCMC explore & converge):
+          </label>
+          <div id="plainPreview" class="text-display-box" aria-live="off"></div>
+        </div>
+
+        <!-- Controls Toolbar -->
+        <div class="control-row">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button type="button" id="btnSolve" class="btn btn-primary" onclick="toggleSolve()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Start Cracking
+            </button>
+            <button type="button" id="btnScramble" class="btn btn-secondary" onclick="scramble()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              New Key
+            </button>
+            <button type="button" id="btnReset" class="btn btn-secondary" onclick="resetSolver()">
+              Reset
+            </button>
+          </div>
+
+          <div class="control-item" style="max-inline-size: 180px;">
+            <label for="speedSlider">Speed: <span id="speedVal">Fast</span></label>
+            <input type="range" id="speedSlider" min="20" max="500" value="200" step="20" oninput="updateSpeed(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Real-time Telemetry & Convergence Stats -->
+      <div class="card">
+        <div class="card-title">
+          <span>Convergence Telemetry</span>
+          <span style="font-size: 0.8125rem; color: var(--text-muted); font-family: var(--mono-font);" id="elapsedTime">0.0s</span>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Iteration</span>
+            <span class="metric-value" id="statIter">0</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Accuracy</span>
+            <span class="metric-value highlight" id="statAccuracy">0.0%</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Acceptance</span>
+            <span class="metric-value" id="statAccept">0.0%</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Log Score</span>
+            <span class="metric-value" id="statScore">0</span>
+          </div>
+        </div>
+
+        <!-- Real-time Chart -->
+        <div>
+          <label style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 0.35rem;">
+            Log-Likelihood Fitness Surface:
+          </label>
+          <div class="chart-container">
+            <canvas id="scoreChart" width="400" height="140"></canvas>
+          </div>
+        </div>
+
+        <!-- Decryption Key Mapping (A-Z) -->
+        <div>
+          <label style="font-size: 0.8125rem; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 0.35rem;">
+            Active Key Mapping Table (Cipher &rarr; Plain):
+          </label>
+          <div id="keyGrid" class="key-grid"></div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Deep Dive / Writeup Section -->
+    <section class="writeup-section" aria-labelledby="writeup-heading">
+      <h2 id="writeup-heading">How the Algorithm Works</h2>
+
+      <div class="writeup-grid">
+        <div class="feature-card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            The Brute Force Problem
+          </h3>
+          <p>
+            Monoalphabetic substitution ciphers map each of the 26 letters to another letter. The total number of possible keys is <strong>26! &asymp; 4.03 &times; 10<sup>26</sup></strong>. Testing 1 billion keys per second would still take <strong>12 billion years</strong>—longer than the age of the Earth.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Metropolis–Hastings Random Walk
+          </h3>
+          <p>
+            Instead of searching blindly, we define a probability landscape where English-like texts have exponentially higher probability. We propose swapping two letters at random. If the new key scores higher, we <strong>always accept</strong>. If lower, we accept with probability <strong>e<sup>&Delta;score</sup></strong> to avoid getting trapped in local optima.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            War & Peace Bigram Matrix
+          </h3>
+          <p>
+            The scoring engine uses a 27&times;27 transition matrix <em>M(x, y)</em> precomputed from Leo Tolstoy's <em>War and Peace</em> (over 3 million characters). High-probability letter transitions like <strong>TH</strong>, <strong>HE</strong>, and <strong>IN</strong> quickly pull the Markov Chain straight toward intelligible plaintext.
+          </p>
+        </div>
+      </div>
+
+      <div class="math-callout">
+        <div><strong>Plausibility Function:</strong> &nbsp; LogScore(f) = &sum;<sub>i=1</sub><sup>N-1</sup> log M(f(c<sub>i</sub>), f(c<sub>i+1</sub>))</div>
+        <div style="margin-top: 0.35rem;"><strong>Acceptance Probability:</strong> &nbsp; &alpha;(f &rarr; f') = min(1, &nbsp; exp(&Delta; LogScore / T))</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Created by <strong>Rakshit Singh</strong> &bull; Based on research by Persi Diaconis & Jeffrey S. Rosenthal &bull; 
+      <a href="https://github.com/pewdiepie-archdaemon" target="_blank" rel="noopener">GitHub Profile</a>
+    </p>
+  </footer>
+
+  <!-- Include precomputed 27x27 matrix -->
+  <script src="matrix.js"></script>
+
+  <script>
+    // Preset Texts
+    const PRESETS = {
+      oliver: "AMONG OTHER PUBLIC BUILDINGS IN A CERTAIN TOWN WHICH FOR MANY REASONS IT WILL BE PRUDENT TO REFRAIN FROM MENTIONING AND TO WHICH I WILL ASSIGN NO FICTITIOUS NAME THERE IS ONE ANCIENTLY COMMON TO MOST TOWNS GREAT OR SMALL TO WIT A WORKHOUSE AND IN THIS WORKHOUSE WAS BORN ON A DAY AND DATE WHICH I NEED NOT TROUBLE MYSELF TO REPEAT INASMUCH AS IT CAN BE OF NO POSSIBLE CONSEQUENCE TO THE READER THE ITEM OF MORTALITY WHOSE NAME IS PREFIXED TO THE HEAD OF THIS CHAPTER",
+      war: "WELL PRINCE SO GENOA AND LUCCA ARE NOW JUST FAMILY ESTATES OF THE BUONAPARTES BUT I WARN YOU IF YOU DONT TELL ME THAT THIS MEANS WAR IF YOU STILL TRY TO DEFEND THE INFAMIES AND HORRORS PERPETRATED BY THAT ANTICHRIST I REALLY BELIEVE HE IS ANTICHRIST I WILL HAVE NOTHING MORE TO DO WITH YOU AND YOU ARE NO LONGER MY FRIEND MY FAITHFUL SLAVE AS YOU CALL YOURSELF",
+      turing: "WE CAN ONLY SEE A SHORT DISTANCE AHEAD BUT WE CAN SEE PLENTY THERE THAT NEEDS TO BE DONE A COMPUTER WOULD DESERVE TO BE CALLED INTELLIGENT IF IT COULD DECEIVE A HUMAN INTO BELIEVING THAT IT WAS HUMAN"
+    };
+
+    let activePlaintext = PRESETS.oliver;
+    let activeCiphertext = '';
+    let encryptionKey = []; // maps plain -> cipher
+    let targetDecryptionKey = []; // true key maps cipher -> plain
+    let isRunning = false;
+    let worker = null;
+    let fallbackTimer = null;
+
+    // Telemetry tracking
+    let scoreHistory = [];
+    const MAX_CHART_POINTS = 50;
+    let startTime = 0;
+    let currentSpeed = 200;
+
+    // Canvas setup
+    const canvas = document.getElementById('scoreChart');
+    const ctx = canvas.getContext('2d');
+
+    function selectPreset(name) {
+      if (isRunning) toggleSolve();
+      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      if (name === 'oliver') document.getElementById('presetOliver').classList.add('active');
+      if (name === 'war') document.getElementById('presetWar').classList.add('active');
+      if (name === 'turing') document.getElementById('presetTuring').classList.add('active');
+
+      activePlaintext = PRESETS[name];
+      scramble();
+    }
+
+    function scramble() {
+      if (isRunning) toggleSolve();
+      
+      // Generate random substitution key for A-Z (0-25)
+      encryptionKey = Array.from({ length: 26 }, (_, i) => i);
+      for (let i = 25; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [encryptionKey[i], encryptionKey[j]] = [encryptionKey[j], encryptionKey[i]];
+      }
+
+      // Compute inverse key (the target decryption key)
+      targetDecryptionKey = Array(26);
+      for (let i = 0; i < 26; i++) {
+        targetDecryptionKey[encryptionKey[i]] = i;
+      }
+
+      // Encrypt text
+      activeCiphertext = '';
+      for (let c of activePlaintext) {
+        if (c >= 'A' && c <= 'Z') {
+          activeCiphertext += String.fromCharCode(65 + encryptionKey[c.charCodeAt(0) - 65]);
+        } else {
+          activeCiphertext += ' ';
+        }
+      }
+
+      document.getElementById('cipherPreview').textContent = activeCiphertext;
+      resetSolver();
+    }
+
+    function resetSolver() {
+      if (isRunning) toggleSolve();
+
+      scoreHistory = [];
+      drawChart();
+      updateMetrics(0, 0, 0, 0);
+
+      // Reset Decrypted preview to identity
+      renderDecrypted(Array.from({ length: 26 }, (_, i) => i));
+      renderKeyGrid(Array.from({ length: 26 }, (_, i) => i));
+
+      document.getElementById('statusBadge').textContent = 'Ready';
+      document.getElementById('statusBadge').style.color = '#34d399';
+      document.getElementById('btnSolve').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Start Cracking`;
+
+      initWorker();
+    }
+
+    function initWorker() {
+      if (worker) worker.terminate();
+
+      try {
+        worker = new Worker('worker.js');
+        worker.onmessage = handleWorkerMessage;
+        worker.postMessage({
+          type: 'init',
+          matrix: BIGRAM_MATRIX,
+          ciphertext: activeCiphertext,
+          plaintext: activePlaintext,
+          maxIterations: 15000,
+          itersPerBatch: currentSpeed
+        });
+      } catch (err) {
+        console.warn('Web Worker failed (likely file:// origin). Using in-thread animation fallback.', err);
+        worker = null;
+      }
+    }
+
+    function handleWorkerMessage(e) {
+      const data = e.data;
+      if (data.type === 'tick') {
+        const key = data.bestKey;
+        renderDecrypted(key);
+        renderKeyGrid(key);
+
+        const acc = calculateAccuracy(key);
+        updateMetrics(data.iteration, acc, data.acceptanceRate, data.bestScore);
+        
+        scoreHistory.push(data.bestScore);
+        if (scoreHistory.length > MAX_CHART_POINTS) scoreHistory.shift();
+        drawChart();
+
+        document.getElementById('elapsedTime').textContent = (data.elapsedMs / 1000).toFixed(1) + 's';
+
+        if (data.isComplete) {
+          isRunning = false;
+          document.getElementById('statusBadge').textContent = 'Converged';
+          document.getElementById('statusBadge').style.color = '#60a5fa';
+          document.getElementById('btnSolve').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Solved`;
+          announce('MCMC Decryption complete. Accuracy achieved: ' + acc.toFixed(1) + ' percent.');
+        }
+      }
+    }
+
+    function calculateAccuracy(decKey) {
+      let correct = 0;
+      for (let i = 0; i < 26; i++) {
+        if (decKey[i] === targetDecryptionKey[i]) correct++;
+      }
+      return (correct / 26) * 100;
+    }
+
+    function renderDecrypted(decKey) {
+      let result = '';
+      for (let i = 0; i < activeCiphertext.length; i++) {
+        const c = activeCiphertext[i];
+        if (c >= 'A' && c <= 'Z') {
+          const cipherIdx = c.charCodeAt(0) - 65;
+          const plainChar = String.fromCharCode(65 + decKey[cipherIdx]);
+          const isCorrect = decKey[cipherIdx] === targetDecryptionKey[cipherIdx];
+          result += `<span class="${isCorrect ? 'char-matched' : 'char-scrambled'}">${plainChar}</span>`;
+        } else {
+          result += ' ';
+        }
+      }
+      document.getElementById('plainPreview').innerHTML = result;
+    }
+
+    function renderKeyGrid(decKey) {
+      const container = document.getElementById('keyGrid');
+      let html = '';
+      for (let i = 0; i < 26; i++) {
+        const cipherLetter = String.fromCharCode(65 + i);
+        const plainLetter = String.fromCharCode(65 + decKey[i]);
+        const isCorrect = decKey[i] === targetDecryptionKey[i];
+        html += `
+          <div class="key-cell ${isCorrect ? 'correct' : ''}">
+            <span class="cipher-char">${cipherLetter}</span>
+            <span class="plain-char">${plainLetter}</span>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    function updateMetrics(iter, acc, acceptRate, score) {
+      document.getElementById('statIter').textContent = iter.toLocaleString();
+      document.getElementById('statAccuracy').textContent = acc.toFixed(1) + '%';
+      document.getElementById('statAccept').textContent = (acceptRate * 100).toFixed(1) + '%';
+      document.getElementById('statScore').textContent = Math.round(score).toLocaleString();
+    }
+
+    function updateSpeed(val) {
+      currentSpeed = parseInt(val);
+      const label = currentSpeed < 100 ? 'Slow' : currentSpeed < 300 ? 'Fast' : 'Turbo';
+      document.getElementById('speedVal').textContent = label;
+      if (worker) {
+        worker.postMessage({ type: 'setParams', itersPerBatch: currentSpeed });
+      }
+    }
+
+    function toggleSolve() {
+      if (!isRunning) {
+        isRunning = true;
+        document.getElementById('statusBadge').textContent = 'Deciphering';
+        document.getElementById('statusBadge').style.color = '#fbbf24';
+        document.getElementById('btnSolve').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> Pause`;
+        announce('Decryption started.');
+        if (worker) {
+          worker.postMessage({ type: 'start', itersPerBatch: currentSpeed });
+        }
+      } else {
+        isRunning = false;
+        document.getElementById('statusBadge').textContent = 'Paused';
+        document.getElementById('statusBadge').style.color = '#9ca3af';
+        document.getElementById('btnSolve').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Resume`;
+        announce('Decryption paused.');
+        if (worker) {
+          worker.postMessage({ type: 'pause' });
+        }
+      }
+    }
+
+    function drawChart() {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (scoreHistory.length < 2) {
+        ctx.fillStyle = '#374151';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('Awaiting MCMC score trajectory...', 14, h / 2);
+        return;
+      }
+
+      const min = Math.min(...scoreHistory);
+      const max = Math.max(...scoreHistory);
+      const range = (max - min) || 1;
+
+      // Draw Grid Lines
+      ctx.strokeStyle = '#1f2937';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let y = 0.25; y < 1; y += 0.25) {
+        ctx.moveTo(0, h * y);
+        ctx.lineTo(w, h * y);
+      }
+      ctx.stroke();
+
+      // Draw Gradient fill
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(59, 130, 246, 0.35)');
+      grad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+      ctx.beginPath();
+      scoreHistory.forEach((val, idx) => {
+        const x = (idx / (scoreHistory.length - 1)) * w;
+        const y = h - ((val - min) / range) * (h - 20) - 10;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Draw Line
+      ctx.beginPath();
+      scoreHistory.forEach((val, idx) => {
+        const x = (idx / (scoreHistory.length - 1)) * w;
+        const y = h - ((val - min) / range) * (h - 20) - 10;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#60a5fa';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    function announce(msg) {
+      const el = document.getElementById('liveAnnouncer');
+      if (el) el.textContent = msg;
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      scramble();
+    });
+  </script>
+</body>
+</html>
